@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" crossorigin="anonymous">
+    <style>
+        #messages{height:300px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6 offset-md-3 col-sm-12">
+                <h1 class="text-center">
+                    Chat Application 
+                    <button id="dowanload_log" class="btn btn-info">Downalod Chat Log</button>
+                </h1>
+                <div id="status"></div>
+                <div id="chat">
+                    <input type="text" id="username" class="form-control" placeholder="Enter name...">
+                    <br>
+                    <div class="card">
+                        <div id="messages" class="card-block">
+
+                        </div>
+                    </div>
+                    <br>
+                    <textarea id="textarea" class="form-control" placeholder="Enter message..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connecting external lib. which is part of node_module folder -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        (function(){
+            let element = (id) => {
+                return document.getElementById(id);
+            }
+
+            var status = element('status');
+            var messages = element('messages');
+            var textarea = element('textarea');
+            var username = element('username');
+            var downloadBtn = element('dowanload_log');
+
+            const socket = io();
+
+            // Set default status
+            var statusDefault = status.textContent;
+
+            var setStatus = (s) => {
+                status.textContent = s;
+                if(s != statusDefault){
+                    setTimeout(function(){
+                        setStatus(statusDefault);
+                    }, 5000);
+                }
+            }
+
+            // Check for connection
+            if(socket !== undefined){
+                console.log('Connected to socket...');
+
+                //Handle Output
+                socket.on('output', (data) => {
+                    if(data.length > 0){
+                        for(var x = 0;x < data.length;x++){
+                            var message = document.createElement('div');
+                            message.setAttribute('class', 'chat-message');
+                            message.textContent = data[x].name+": "+data[x].message;
+                            messages.appendChild(message);
+                            messages.insertBefore(message, messages.firstChild);
+                        }
+                    }
+                });
+
+                // Get Status From Server
+                socket.on('status', function(data){
+                    // get message status
+                    setStatus((typeof data === 'object')? data.message : data);
+
+                    // If status is clear, clear text
+                    if(data.clear){
+                        textarea.value = '';
+                    }
+                });
+
+                //Handle the Input Event
+                textarea.addEventListener('keydown', function(e){
+                    
+                    if(e.which === 13 && e.shiftKey == false){
+                        socket.emit('input', {
+                            name:username.value,
+                            message:textarea.value
+                        });
+
+                        e.preventDefault();
+                    }
+
+                });
+
+                // Handle Chat dowanload
+                downloadBtn.addEventListener('click', function(){
+                    socket.emit('download');
+                });
+
+
+                socket.on('dowanloadFile', (data) => {
+                    if(data.length > 0){
+                        //Convert JSON Array to string.
+                        var json = JSON.stringify(data);
+
+                        //Convert JSON string to BLOB.
+                        json = [json];
+                        var blob1 = new Blob(json, { type: "application/json;charset=utf-8" });
+
+                        //Check the Browser.
+                        var isIE = false || !!document.documentMode;
+                        if (isIE) {
+                            window.navigator.msSaveBlob(blob1, "chat.json");
+                        } else {
+                            var url = window.URL || window.webkitURL;
+                            link = url.createObjectURL(blob1);
+                            var a = document.createElement("a");
+                            a.download = "chat.json";
+                            a.href = link;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }
+                    }
+
+                });
+            }
+            
+        })();
+    </script>
+</body>
+</html>
